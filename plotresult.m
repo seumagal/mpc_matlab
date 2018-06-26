@@ -1,37 +1,38 @@
+set(0, 'DefaultLineLineWidth', 2);
 subplot(2,2,1)
 tempo = steer(:,1);
-plot( tempo, x(1,:)');
+plot( tempo, x(1,:)'*180/pi);
 hold on
-plot( tempo, ones(size(tempo))*pi/18)
-plot( tempo, -ones(size(tempo))*pi/18)
+plot( tempo, ones(size(tempo))*ub*180/pi)
+plot( tempo, ones(size(tempo))*lb*180/pi)
 title('Deslizamento lateral')
 xlabel('tempo (s)')
-ylabel('\beta (rad)')
+ylabel('\beta (graus)')
 
 subplot(2,2,2)
-plot( steer(:,1), x(2,:)');
+plot( steer(:,1), x(2,:)'*180/pi);
 hold on
-plot( steer(:,1), desired_yaw_rate);
-plot( tempo, ones(size(tempo))*pi/6)
-plot( tempo, -ones(size(tempo))*pi/6)
+plot( steer(:,1), desired_yaw_rate*180/pi);
+%plot( tempo, ones(size(tempo))*pi/6)
+%plot( tempo, -ones(size(tempo))*pi/6)
 title('Taxa de guinada')
 xlabel('tempo (s)')
-ylabel('d\psi/dt (rad/s)')
+ylabel('d\psi/dt (graus/s)')
 
 subplot(2,2,3)
-plot( steer(:,1), x(4,:)');
+plot( steer(:,1), x(4,:)'*180/pi);
 hold on
-plot( tempo, ones(size(tempo))*pi/18)
-plot( tempo, -ones(size(tempo))*pi/18)
+%plot( tempo, ones(size(tempo))*pi/18)
+%plot( tempo, -ones(size(tempo))*pi/18)
 title('Rolagem')
 xlabel('tempo (s)')
-ylabel('\phi (rad)')
+ylabel('\phi (graus)')
 
 subplot(2,2,4)
 plot( steer(:,1), u);
 hold on
-plot( tempo, ones(size(tempo))*0.8e5)
-plot( tempo, -ones(size(tempo))*0.8e5)
-title('Rolagem')
+plot( tempo, ones(size(tempo))*cmd_ub)
+plot( tempo, ones(size(tempo))*cmd_lb)
+title('Comando')
 xlabel('tempo (s)')
-ylabel('\phi (rad)')
+ylabel('M_u (Nm)')

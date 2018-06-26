@@ -125,7 +125,7 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
     obj.nv = size(arg_E,2);
     obj.nc = size(obj.C_C,1);
     
-    alpha = 100;
+    alpha = 10;
     
     % Se existe perturbação
     if size(arg_E,1) == size(arg_B,1)
@@ -212,8 +212,8 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
         obj.AINEQ((i-1)*obj.nc + 1: i*obj.nc, : ) =  obj.C_C*obj.c_PSI{i};
         obj.AINEQ(2*obj.n*obj.nc+(i-1)*obj.nu+1:2*obj.n*obj.nc+i*obj.nu - obj.nv,(i-1)*obj.nu+1:i*obj.nu - obj.nv)= eye(obj.nu - obj.nv);
         if i > 1
-            obj.AINEQ(2*obj.n*obj.nc+(i-1)*obj.nu+1:2*obj.n*obj.nc+i*obj.nu - obj.nv ,(i-2)*obj.nu+1:(i-1)*obj.nu - obj.nv )= ...
-                -eye(obj.nu - obj.nv);
+            obj.AINEQ(2*obj.n*obj.nc+(i-1)*obj.nu+1:2*obj.n*obj.nc+i*obj.nu ,(i-2)*obj.nu+1:(i-1)*obj.nu )= ...
+                -eye(obj.nu);
         end
         obj.G1((i-1)*obj.nc + 1: i*obj.nc, : ) = -obj.C_C*obj.c_PHI{i};
     end

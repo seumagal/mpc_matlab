@@ -60,6 +60,7 @@ classdef ClassLinearMPC < handle
         nc    % Comrpimento do vetor de saídas com restrição
         nv    % Comprimento do vetor de perturbações mensuráveis (entradas não controladas)
         constrained %flag que indica se o modelo tem restrições(=1)
+        np    % Comprimento do comando parâmetrizado.
         
         %Matrizes da inequação que representa as restrições
         AINEQ 
@@ -72,6 +73,11 @@ classdef ClassLinearMPC < handle
         % Restrições no comando
         cmd_lb
         cmd_ub
+        
+        % Parametrização
+        PI_R
+        PI_E
+        
     end
     
     methods(Static)        
@@ -106,7 +112,7 @@ classdef ClassLinearMPC < handle
                         arg_Q_Y, arg_C_C, arg_n, arg_lb, arg_ub, ...
                         arg_slew_lb, arg_slew_ub, ...
                         arg_cmd_lb, arg_cmd_ub, ...
-                        arg_E )         
+                        arg_E, arg_parameterization, arg_param_coefficient, arg_sampling_time )         
     end 
     
     methods
@@ -118,10 +124,11 @@ classdef ClassLinearMPC < handle
          então: PI * tilde_s = s[n+arg_sel].
          @arg arg_obj é o objeto que invoca o método
          @arg arg_sel indica a amostra selecionada
-         @arg arg_n é o comprimento das amastras
+         @arg arg_n é o comprimento das amostras
+         @arg arg_N é o numero de amostras concatenadas
          @return out_sel_matrix é a matriz de seleção PI.
         %}
-        out_sel_matrix = sel_matrix( obj, arg_sel, arg_n )
+        out_sel_matrix = sel_matrix( obj, arg_sel, arg_n, arg_N )
         
         %{
          @brief 

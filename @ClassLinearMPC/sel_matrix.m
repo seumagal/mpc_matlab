@@ -24,10 +24,11 @@
  então: PI * tilde_s = s[n+arg_sel].
  @arg arg_obj é o objeto que invoca o método
  @arg arg_sel indica a amostra selecionada
- @arg arg_n é o comprimento das amastras
+ @arg arg_n é o comprimento das amostras
+ @arg arg_N é o número de amostras concatenadas
  @return out_sel_matrix é a matriz de seleção PI.
 %}
-function out_sel_matrix = sel_matrix( obj, arg_sel, arg_n )
-    out_sel_matrix = zeros( arg_n ,arg_n*obj.n);
+function out_sel_matrix = sel_matrix( obj, arg_sel, arg_n, arg_N )
+    out_sel_matrix = zeros( arg_n ,arg_n*arg_N);
     out_sel_matrix( :, (arg_sel - 1)*arg_n + 1:arg_sel*arg_n) = eye(arg_n);
 end
