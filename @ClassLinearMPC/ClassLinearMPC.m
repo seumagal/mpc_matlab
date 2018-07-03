@@ -8,14 +8,6 @@
   Este script define a classe que representa um descritor do alogritmo
   de controle preditivo.
 
-  Histórico de modificações:
----------------------------------------------------------------------------
-- 24/05/2018 - Zoé Magalhães
-- Início do controle de versão.
-- Contempla o controle preditivo para LTI com restrições e perturbações
-  mensuráveis. 
-- Contempla apenas o caso em que o número de saídas é igual ao número de
-  estados.
 ---------------------------------------------------------------------------
 %}
 %%
@@ -78,6 +70,9 @@ classdef ClassLinearMPC < handle
         PI_R
         PI_E
         
+        %
+        QP
+        
     end
     
     methods(Static)        
@@ -112,7 +107,8 @@ classdef ClassLinearMPC < handle
                         arg_Q_Y, arg_C_C, arg_n, arg_lb, arg_ub, ...
                         arg_slew_lb, arg_slew_ub, ...
                         arg_cmd_lb, arg_cmd_ub, ...
-                        arg_E, arg_parameterization, arg_param_coefficient, arg_sampling_time )         
+                        arg_E, arg_parameterization, arg_param_coefficient,...
+                        arg_sampling_time, solver )         
     end 
     
     methods
@@ -140,11 +136,11 @@ classdef ClassLinearMPC < handle
          @arg disturbance é o vetor de perturbação atual, considerado
          constante durante todo o horizonte de predição.
          @return out_next_command é o vetor de comando atualizado.
-         
+         @return QP contexto da programação quadrática
          @note além de retorna esta função também registra em obj.u
                o vetor de controle calculado.
         %}
-        out_next_command = write_next_command( obj, arg_TRACK, arg_disturbance )
+        [out_next_command, QP] = write_next_command( obj, arg_TRACK, arg_disturbance )
     end
     
 end

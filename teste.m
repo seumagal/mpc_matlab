@@ -9,12 +9,6 @@
   veicular mediante aplicação do controle preditivo para sistemas LTI,
   com perturbação mensurável (entrada não controlada) e restrições
   para os estados e sinal de controle.
-
-  Histórico de modificações:
----------------------------------------------------------------------------
-- 24/05/2018 - Zoé Magalhães
-- Início do controle de versão.
----------------------------------------------------------------------------
 %}
 
 clear 
@@ -24,7 +18,7 @@ clear
     Horizon = 101;
 
     %param_coeff =   [1 2 5 10 20 ]; %Parametrização geral Nij
-    param_coeff = [ 1000; 4 ]; %Parametrização exponencial alpha; ne 
+    param_coeff = [ 1000; 3 ]; %Parametrização exponencial alpha; ne 
     % Ponderações da função custo
     Q_Y = diag(2); % Ponderação do erro em y
     Q_U = 1e-12;   % Ponderação do custo do controle
@@ -34,39 +28,40 @@ clear
 
     lb = -pi/36;        %Valor mínimo do estado regulado
     ub = -lb;           %Valor máximo do estado regulado
-    slew_lb = -1e6;     %Diferença mínima entre duas amostras consecutivas do comando
-    slew_ub = 1e6;      %Diferença máxima entre duas amostras consecutivas do comando
-    cmd_lb = -1e6;      %Valor máximo do comando
-    cmd_ub = 1e6;       %Valor mínimo do comando
+    slew_lb = -2e4;     %Diferença mínima entre duas amostras consecutivas do comando
+    slew_ub = 2e4;      %Diferença máxima entre duas amostras consecutivas do comando
+    cmd_lb = -1e4;      %Valor máximo do comando
+    cmd_ub = 1e4;       %Valor mínimo do comando
 
     % Manobra de teste
     maneuver = 'doublelane'; %'doublelane'
     max_steer = pi/18;
 
 %% Parâmetros do modelo
-    a                   =  1.1%1.035;  %distância entre cg e eixo frontal
-    b                   =  1.3%1.655;  %distância entre cg e eixo traseiro
-    tf                  =  1.4%1.52;   %comprimento do eixo frontal
-    tr                  =  1.41%1.54;   %comprimento do eixo traseiro
-    hg                  =  0.6%0.542;  %altura do cg
-    m                   =  1070%1704.7; %massa
-    hs                  =  0.55%0.451;  %altura do centro de rolagem
-    ms                  =  900%1526.9; %massaa sobre centro de rolagem
-    kf					=  65590%47298;  %coeficiente de rigidez frontal a rolagem
-    kr 					=  65590%47311;  %coeficiente de rigidez traseira a rolagem
-    cf					=  2100%2823;   %coeficiente de amortecimento frontal a rolagem
-    cr 					=  2100%2652;   %coeficiente de amortecimental traseiro a rolagem
+    a                   =  1.035;  %distância entre cg e eixo frontal
+    b                   =  1.655;  %distância entre cg e eixo traseiro
+    tf                  =  1.52;   %comprimento do eixo frontal
+    tr                  =  1.54;   %comprimento do eixo traseiro
+    hg                  =  0.542;  %altura do cg
+    m                   =  1704.7; %massa
+    hs                  =  0.451;  %altura do centro de rolagem
+    ms                  =  1526.9; %massaa sobre centro de rolagem
+    kf					=  47298/4;  %coeficiente de rigidez frontal a rolagem
+    kr 					=  47311/4;  %coeficiente de rigidez traseira a rolagem
+    cf					=  2823;   %coeficiente de amortecimento frontal a rolagem
+    cr 					=  2652;   %coeficiente de amortecimental traseiro a rolagem
     roll_damping        =  cf+cr;   %coeficiente de rigidez a rolagem
     roll_stiffness      =  kf+kr;   %coeficiente de amortecimento a rolagem
-    Izz                 =  2100%3048.1;  %momento de inércia do eixo de guinada
-    Ixx                 =  500%744;     %momento de inércia do eixo de rolagem
-    Ixz                 =  47.5%50;      %produto de inércia dos eixos de rolagem e guinada
+    Izz                 =  3048.1;  %momento de inércia do eixo de guinada
+    Ixx                 =  744;     %momento de inércia do eixo de rolagem
+    Ixz                 =  0;      %produto de inércia dos eixos de rolagem e guinada
     g                   =  9.80665 ;    %aceleração gravitacional
     l = a+b;                       %distância entre os eixos frontal e traseiro       
-    uspeed = 80/3.6;               %velocidade longitudinal de linearização
+    uspeed = 80/3.6;               %velociade longitudinal de linearização
     MFA                 = [ 1.6  ,-34 , 1250 ,  2320  , 12.8 ,     0 , -0.0053 , 0.1925         ];
 
-    C_alpha = MFA(4)*sin(2*atan(([b,b,a,a]*m*g/(2000*l))/MFA(5)));    Ku = 0.03;  %Coeficiente utilizado para calcular a taxa de guinada desejada
+    C_alpha = MFA(4)*sin(2*atan(([b,b,a,a]*m*g/(2000*l))/MFA(5)));    
+    Ku = 0.06;  %Coeficiente utilizado para calcular a taxa de guinada desejada
 
 %% Modelo linear Mx'= A1x + B1u + E1steer
     M1 = [      m*uspeed,    0,  -ms*hs,  0;
@@ -94,6 +89,8 @@ clear
     sys = ss( A,[B,E]  ,C,D);
     d_sys = c2d(sys,8e-4);
     abs(eig(d_sys.a))
+    
+    %codegen -report model_update.m -args {zeros(size(d_sys.a)), zeros(size(d_sys.b)), zeros(4,1),0,0}
 
 %% Criando um descritor do controle preditivo
 
@@ -132,30 +129,43 @@ clear
     u = zeros(size(steer(:,1)));
 
     strlen = 0; 
+    
+
+ 
 %% Laço que executa as iterações da simulação
 for i=1:size(steer,1)
+   
+    %tic
+    %disp(steer(i,1))
     
+    %{
     fprintf(repmat('\b',1,strlen));
     str = sprintf('\n%2.4f', steer(i,1) );
     fprintf(str);
     strlen = numel(str);
-    
+    %}
+    %disp('3')
+    %tic
     % Calcula a taxa de guinada desejada 
     desired_yaw_rate(i) = ...
         steer(i,2)*uspeed/(l + Ku*l*uspeed*uspeed);
-    
+    %toc
     % Calcula a trajetória desejada 
     TRACK = desired_yaw_rate(i)*ones(Horizon,1);
-    
+    %disp('2')
+    %tic
     % Atualiza o sinal de comando
-    u(i) = mpcobj.write_next_command(TRACK, steer(i,2) );
-    
+    [u(i), QP] = mpcobj.write_next_command(TRACK, steer(i,2) );
+   %toc;
     % Atualiza os estados
-    x(:,i) = d_sys.a*mpcobj.x + d_sys.b*[u(i); steer(i,2)];
-    
+   % disp('1')
+    %tic
+    x(:,i) =  model_update_mex(d_sys.a,d_sys.b,mpcobj.x,u(i),steer(i,2));
+    %toc
     mpcobj.x = x(:,i);
+    %toc
 end
-
+qpOASES_sequence('c',QP);
 figure()
 plotresult
 save exe_teste

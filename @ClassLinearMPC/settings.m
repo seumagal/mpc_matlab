@@ -7,13 +7,6 @@
   
   Este script implementa a função de configuração do descritor de controle
   preditivo.
-
-  Histórico de modificações:
----------------------------------------------------------------------------
-- 24/05/2018 - Zoé Magalhães
-- Início do controle de versão.
-- Contempla sistemas com e sem restrição
-- Contempla sistemas com e sem perturbações mensuráveis. 
 ---------------------------------------------------------------------------
 %}
 %%
@@ -39,14 +32,15 @@
                 comando
 @arg arg_cmd_ub é o vetor de restrição superior do vetor de
                 comando
-@arg_E é a matriz E de ganho das perturbações na atualização dos
+@arg arg_E é a matriz E de ganho das perturbações na atualização dos
        estados. x[n] = A x[n-1] + Bu + Ev, em que v é o vetor
        de perturbações
-@arg_parameterization é uma string informando se a parâmetrização é
+@arg arg_parameterization é uma string informando se a parâmetrização é
 - 'none' : trivial
 - 'general': atualização do comando nos instantes definidos pelos coeficientes
 - 'exponencial' : comando formado pela combinação de  exponenciais.
-@arg_param_coefficient são os coeficientes da parâmetrização.
+@arg arg_param_coefficient são os coeficientes da parâmetrização.
+@arg arag_sampling_time é o período de amostragem
 %}
 function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
                          arg_C_C, arg_n, arg_lb, arg_ub, ...
@@ -125,7 +119,7 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
     obj.nv = size(arg_E,2);
     obj.nc = size(obj.C_C,1);
     
-    alpha = 100;
+    alpha = 1000;
     
     % Se existe perturbação
     if size(arg_E,1) == size(arg_B,1)
@@ -253,25 +247,46 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
             obj.constrained = 1;
     end
     
-        switch arg_parameterization
-       
-            case 'general'
-                obj.H = Pi_r'*obj.H*Pi_r;
-                obj.PI_R = Pi_r;
-                obj.AINEQ = [ obj.AINEQ*Pi_r; -Pi_r; Pi_r];
+    switch arg_parameterization
+   
+        case 'general'
+            obj.H = Pi_r'*obj.H*Pi_r;
+            obj.PI_R = Pi_r;
+            obj.AINEQ = [ obj.AINEQ*Pi_r; -Pi_r; Pi_r];
 
-                obj.np = nr*obj.nu;
-                
-            case 'exponencial'
-                obj.H = Pi_e'*obj.H*Pi_e;
-                obj.PI_E = Pi_e;
-                obj.AINEQ = [ obj.AINEQ*Pi_e; -Pi_e; Pi_e];                
-                obj.np = sum(ne);
-            case 'none'
-                obj.PI_R = [];
-                obj.PI_E = [];
-            otherwise
-                obj.PI_R = [];
-                obj.PI_E = [];
-        end 
+            obj.np = nr*obj.nu;
+            
+        case 'exponencial'
+            obj.H = Pi_e'*obj.H*Pi_e;
+            obj.PI_E = Pi_e;
+            obj.AINEQ = [ obj.AINEQ*Pi_e; -Pi_e; Pi_e];                
+            obj.np = sum(ne);
+        case 'none'
+            obj.PI_R = [];
+            obj.PI_E = [];
+        otherwise
+            obj.PI_R = [];
+            obj.PI_E = [];
+            obj.np = obj.nu * obj.n;
+
+
+    end
+
+    obj.H = (obj.H + obj.H')/2;
+    %Configura o solver da QP
+    %{
+    hmax0 = norm(obj.H,2);
+    hmaxg = norm(obj.AINEQ'*obj.AINEQ,2);
+    rho0 = 1*hmax0/hmaxg;
+    rho_max = 10;
+    n_rho = 10*obj.np;
+    beta_plus = 1.1;
+    beta_minus = 0.4;
+    p0 = zeros( obj.np,1);
+    gam_min = 2;
+    N_iter = 50;
+    obj.QP =  ClassPGE.settings( rho0, rho_max, n_rho, N_iter , p0, gam_min, ...
+                                 beta_plus, beta_minus, size(obj.H), [obj.np,1],...
+                                 size(obj.AINEQ),[size(obj.AINEQ,1),1],obj.np);
+    %}
 end   
