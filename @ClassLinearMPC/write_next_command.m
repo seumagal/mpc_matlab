@@ -36,7 +36,7 @@ function [out_next_command, out_QP] = write_next_command( obj, arg_TRACK, arg_di
     else %Com restrição
             
         B_INEQ = obj.G1*obj.x + obj.G2*obj.u + obj.G3;
-        FINEQ = obj.F1*obj.x + obj.F2*TRACK + obj.F3*[obj.u_d; arg_disturbance];
+        F = obj.F1*obj.x + obj.F2*TRACK + obj.F3*[obj.u_d; arg_disturbance];
         cmd_lb = repmat([obj.cmd_lb;arg_disturbance],obj.n,1);    
         cmd_ub = repmat([obj.cmd_ub;arg_disturbance],obj.n,1);
     
@@ -45,11 +45,11 @@ function [out_next_command, out_QP] = write_next_command( obj, arg_TRACK, arg_di
 %        options = optimset('display','off','MaxIter',1000,'TolCon',eps);
 
         if ~isempty(obj.PI_R)
-            FINEQ = obj.PI_R'*FINEQ;
+            F = obj.PI_R'*F;
             B_INEQ = [B_INEQ;-cmd_lb;cmd_ub];
             
             
-            [p, fval, exitflag] = quadprog((obj.H + obj.H')/2, FINEQ, obj.AINEQ, B_INEQ,...
+            [p, fval, exitflag] = quadprog((obj.H + obj.H')/2, F, obj.AINEQ, B_INEQ,...
                                                      [], [], cmd_lb(1:obj.np), cmd_ub(1:obj.np),[],options );
         
 
@@ -60,21 +60,21 @@ function [out_next_command, out_QP] = write_next_command( obj, arg_TRACK, arg_di
                 end
             
 
-%            p = obj.QP.solver(obj.QP.config, obj.H,FINEQ,obj.AINEQ, B_INEQ, cmd_lb(1:obj.np), cmd_ub(1:obj.np));
+%            p = obj.QP.solver(obj.QP.config, obj.H,F,obj.AINEQ, B_INEQ, cmd_lb(1:obj.np), cmd_ub(1:obj.np));
 %            out_next_command = obj.PI_R(1:obj.nu-obj.nv,:)*p;
         else
             if ~isempty(obj.PI_E)
-                FINEQ = obj.PI_E'*FINEQ;
+                F = obj.PI_E'*F;
                 B_INEQ = [B_INEQ;-cmd_lb;cmd_ub];
                 
 
-                %[p, fval, exitflag] = quadprog( obj.H, FINEQ, obj.AINEQ, B_INEQ,...
+                %[p, fval, exitflag] = quadprog( obj.H, F, obj.AINEQ, B_INEQ,...
                 %                                [], [], [ ones(4,1)*cmd_lb(1); cmd_lb(2)],[ ones(4,1)*cmd_ub(1); cmd_ub(2)], [],options );
                  
                 if isempty(QP)
-                    [QP,p,fval,exitflag,iter] = qpOASES_sequence( 'i', obj.H,FINEQ,obj.AINEQ,[ ones(obj.np-1,1)*cmd_lb(1); cmd_lb(2)],[ ones(obj.np-1,1)*cmd_ub(1); cmd_ub(2)],[], B_INEQ, options );
+                    [QP,p,fval,exitflag,iter] = qpOASES_sequence( 'i', obj.H,F,obj.AINEQ,[ ones(obj.np-1,1)*cmd_lb(1); cmd_lb(2)],[ ones(obj.np-1,1)*cmd_ub(1); cmd_ub(2)],[], B_INEQ, options );
                 else
-                    [p,fval,exitflag,iter] = qpOASES_sequence( 'h', QP,FINEQ,[ ones(obj.np-1,1)*cmd_lb(1); cmd_lb(2)],[ ones(obj.np-1,1)*cmd_ub(1); cmd_ub(2)],[], B_INEQ, options );
+                    [p,fval,exitflag,iter] = qpOASES_sequence( 'h', QP,F,[ ones(obj.np-1,1)*cmd_lb(1); cmd_lb(2)],[ ones(obj.np-1,1)*cmd_ub(1); cmd_ub(2)],[], B_INEQ, options );
                 end
                 out_QP = QP;
                 if isempty(p) %Condição inserida para facilitar debug, o projeto deve estar bem feito para que a otimização tenha solução.
@@ -85,12 +85,12 @@ function [out_next_command, out_QP] = write_next_command( obj, arg_TRACK, arg_di
                 
                                  
                 %tic
- %                p = obj.QP.solver(obj.QP.config, obj.H,FINEQ,obj.AINEQ, B_INEQ, [ ones(4,1)*cmd_lb(1); cmd_lb(2)],[ ones(4,1)*cmd_ub(1); cmd_ub(2)]);
+ %                p = obj.QP.solver(obj.QP.config, obj.H,F,obj.AINEQ, B_INEQ, [ ones(4,1)*cmd_lb(1); cmd_lb(2)],[ ones(4,1)*cmd_ub(1); cmd_ub(2)]);
  %               out_next_command = obj.PI_E(1:obj.nu-obj.nv,:)*p;
                 %toc
             else  
                 
-                [p, fval, exitflag] = quadprog( obj.H, FINEQ, obj.AINEQ, B_INEQ,...
+                [p, fval, exitflag] = quadprog( obj.H, F, obj.AINEQ, B_INEQ,...
                                                 [], [], cmd_lb, cmd_ub, [],options );
         
                 if isempty(p)
@@ -100,7 +100,7 @@ function [out_next_command, out_QP] = write_next_command( obj, arg_TRACK, arg_di
                 end                                                 
                                                
             
-             %   p = obj.QP.solver(obj.QP.config, obj.H,FINEQ,obj.AINEQ, B_INEQ, cmd_lb, cmd_ub);
+             %   p = obj.QP.solver(obj.QP.config, obj.H,F,obj.AINEQ, B_INEQ, cmd_lb, cmd_ub);
              %   out_next_command =  p(1:obj.nu-obj.nv,1);
             end
         end
