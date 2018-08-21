@@ -273,6 +273,17 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
     end
 
     obj.H = (obj.H + obj.H')/2;
+    
+    csvwrite('H.csv',obj.H);
+    csvwrite('PI_E.csv',obj.PI_E);
+    csvwrite('A_CONSTRAINT.csv',obj.AINEQ);
+    csvwrite('G1.csv',obj.G1);
+    csvwrite('G2.csv',obj.G2);
+    csvwrite('G3.csv',obj.G3);
+    csvwrite('F1.csv',obj.F1);
+    csvwrite('F2.csv',obj.F2);
+    csvwrite('F3.csv',obj.F3);
+    
     %Configura o solver da QP
     %{
     hmax0 = norm(obj.H,2);
