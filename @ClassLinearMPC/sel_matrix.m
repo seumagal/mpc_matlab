@@ -9,11 +9,6 @@
   que fornece a matriz de seleção de uma amostra no horizonte
   de predição.
 
-  Histórico de modificações:
----------------------------------------------------------------------------
-- 24/05/2018 - Zoé Magalhães
-- Início do controle de versão.
----------------------------------------------------------------------------
 %}
 
 %{
