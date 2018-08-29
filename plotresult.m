@@ -3,8 +3,10 @@ subplot(2,2,1)
 tempo = steer(:,1);
 plot( tempo, x(1,:)'*180/pi);
 hold on
-plot( tempo, ones(size(tempo))*ub*180/pi)
-plot( tempo, ones(size(tempo))*lb*180/pi)
+if ~isempty(ub)
+    plot( tempo, ones(size(tempo))*ub*180/pi)
+    plot( tempo, ones(size(tempo))*lb*180/pi)
+end
 title('Deslizamento lateral')
 xlabel('tempo (s)')
 ylabel('\beta (graus)')
@@ -31,8 +33,10 @@ ylabel('\phi (graus)')
 subplot(2,2,4)
 plot( steer(:,1), u);
 hold on
-plot( tempo, ones(size(tempo))*cmd_ub)
-plot( tempo, ones(size(tempo))*cmd_lb)
+if ~isempty( cmd_ub )
+    plot( tempo, ones(size(tempo))*cmd_ub)
+    plot( tempo, ones(size(tempo))*cmd_lb)
+end
 title('Comando')
 xlabel('tempo (s)')
 ylabel('M_u (Nm)')

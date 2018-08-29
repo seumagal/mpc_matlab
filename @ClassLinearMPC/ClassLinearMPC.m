@@ -59,12 +59,18 @@ classdef ClassLinearMPC < handle
         G1
         G2
         G3
+        G4
+        G5
         BINEQ
         C_C
         
         % Restrições no comando
         cmd_lb
         cmd_ub
+        
+        %Restrição do comando
+        state_lb
+        state_ub
         
         % Parametrização
         PI_R
@@ -140,7 +146,7 @@ classdef ClassLinearMPC < handle
          @note além de retorna esta função também registra em obj.u
                o vetor de controle calculado.
         %}
-        [out_next_command, QP] = write_next_command( obj, arg_TRACK, arg_disturbance )
+        [out_next_command, QP] = write_next_command( obj, arg_TRACK, arg_disturbance, arg_state_slew_lb, arg_state_slew_ub )
     end
     
 end
