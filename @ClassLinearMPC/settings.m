@@ -24,6 +24,8 @@
 @arg arg_n é o horizonte de predição em número de amostras
 @arg arg_lb é o vetor de restrição inferior dos estados
 @arg arg_ub é o vetor de restrição superior dos estados
+@arg arg_slew_sub é o vetor de restrição superior da variação dos estados
+@arg arg_slew_slb é o vetor de restrição inferor da variação dos estados
 @arg arg_slew_lb é o vetor de restrição inferior da variação entre
                  duas amostras do vetor de comando.
 @arg arg_slew_ub é o vetor de restrição superior da variação entre
@@ -118,16 +120,22 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
     obj.ny = size(obj.C,1);
     obj.nv = size(arg_E,2);
     obj.nc = size(obj.C_C,1);
-    
-    alpha = 1000;
+   
     
     % Se existe perturbação
-    if size(arg_E,1) == size(arg_B,1)
-        obj.B = [ obj.B, arg_E ];
-        obj.Q_U = [ obj.Q_U, zeros(obj.nu,obj.nv);
-                    zeros(obj.nv, obj.nu + obj.nv) ];
-        obj.nu = obj.nu + obj.nv;
-        obj.D = [ obj.D, zeros(obj.nx, obj.nv); zeros(obj.nv, obj.nu ) ];
+    if ( size(arg_E,1) == size(arg_B,1) )
+        if ( obj.nc > 0 )
+            obj.B = [ obj.B, arg_E ];
+            obj.Q_U = [ obj.Q_U, zeros(obj.nu,obj.nv);
+                        zeros(obj.nv, obj.nu + obj.nv) ];
+            obj.nu = obj.nu + obj.nv;
+            obj.D = [ obj.D, zeros(obj.nx, obj.nv); zeros(obj.nv, obj.nu ) ];
+        else
+            obj.A = [ obj.A, arg_E; zeros(obj.nv,obj.nx + obj.nv ) ];
+            obj.B = [ obj.B; zeros(obj.nv,obj.nu)];
+            obj.C = [obj.C, zeros(obj.ny,obj.nv)];
+            obj.nx = obj.nx + obj.nv;
+        end
     end
     
     
@@ -158,14 +166,16 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
         case 'exponencial'
             lambda = arg_param_coefficient( 1, : );
             ne = arg_param_coefficient( 2, : );
+            alpha = arg_param_coefficient( 3, : );
             ne = [ ne, ones(1,obj.nv)];
+            alpha = [alpha, zeros(1,obj.nv)];
             lambda = [lambda, zeros(1,obj.nv)];
             Pi_e =[];
             for i=0:obj.n-1
                 Mi=[];
                 for j=1:obj.nu
                     ell = 1:ne(j);
-                    Mji = exp( -lambda(j)*i*arg_sampling_time./((ell-1)*alpha+1));
+                    Mji = exp( -lambda(j)*i*arg_sampling_time./((ell-1)*alpha(j)+1));
                     Mi=blkdiag(Mi,Mji);
                 end
                 Pi_e = [Pi_e;Mi];    
@@ -182,12 +192,17 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
     obj.F2 = zeros(obj.nu*obj.n, obj.ny*obj.n);
     obj.F3 = zeros(obj.nu*obj.n, obj.nu);
     
-    obj.AINEQ = zeros( 2*obj.n*obj.nc + 2*obj.n*obj.nu , obj.nu*obj.n );
-    obj.G1 = zeros( 2*obj.n*obj.nc + 2*obj.n*obj.nu, obj.nx );
-    obj.G2 = zeros( 2*obj.n*obj.nc + 2*obj.n*obj.nu, obj.nu - obj.nv );
-    obj.G3 = zeros( 2*obj.n*obj.nc + 2*obj.n*obj.nu, 1 );
-
+    if obj.nc > 0 
+        obj.AINEQ = zeros( 4*obj.n*obj.nc + 2*obj.n*obj.nu, obj.nu*obj.n );
+        obj.G1 = zeros( 4*obj.n*obj.nc + 2*obj.n*obj.nu, obj.nx );
+        obj.G2 = zeros( 4*obj.n*obj.nc + 2*obj.n*obj.nu, obj.nu - obj.nv );
+        obj.G3 = zeros( 4*obj.n*obj.nc + 2*obj.n*obj.nu, 1 );
+        obj.G4 = zeros( 4*obj.n*obj.nc + 2*obj.n*obj.nu, obj.nx );
+    end
+    
     for i = 1:obj.n
+        
+        %Matrizes de predição dos estados futuro 
         obj.c_PHI{i} = obj.A^i;
         obj.c_PSI{i} = zeros(obj.nx,obj.nu*obj.n);
         for j = 1:i
@@ -196,6 +211,8 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
         end
 
         sel = obj.sel_matrix(i,obj.nu, obj.n);
+        
+        %Hessiano
         obj.H = obj.H + obj.c_PSI{i}'*obj.C'*obj.Q_Y*obj.C*obj.c_PSI{i} + sel'*obj.Q_U*sel;
         
         obj.F1 = obj.F1 + obj.c_PSI{i}'*obj.C'*obj.Q_Y*obj.C*obj.c_PHI{i};
@@ -203,48 +220,98 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
         sel = obj.sel_matrix(i,obj.ny,obj.n);
         obj.F2 = obj.F2 + obj.c_PSI{i}'*obj.C'*obj.Q_Y*sel;
         
-        obj.AINEQ((i-1)*obj.nc + 1: i*obj.nc, : ) =  obj.C_C*obj.c_PSI{i};
-        obj.AINEQ(2*obj.n*obj.nc+(i-1)*obj.nu+1:2*obj.n*obj.nc+i*obj.nu - obj.nv,(i-1)*obj.nu+1:i*obj.nu - obj.nv)= eye(obj.nu - obj.nv);
-        if i > 1
-            obj.AINEQ(2*obj.n*obj.nc+(i-1)*obj.nu+1:2*obj.n*obj.nc+i*obj.nu - obj.nv ,(i-2)*obj.nu+1:(i-1)*obj.nu - obj.nv )= ...
-                -eye(obj.nu - obj.nv);
+        %Restrição dos estados
+        if obj.nc > 0
+            rows = (i-1)*obj.nc + 1 : i*obj.nc;
+            obj.AINEQ( rows, : ) =  obj.C_C*obj.c_PSI{i};
+            obj.G1( rows, : ) = -obj.C_C*obj.c_PHI{i};  
         end
-        obj.G1((i-1)*obj.nc + 1: i*obj.nc, : ) = -obj.C_C*obj.c_PHI{i};
+        
+        %Restrição do comando
+        rows = 2*obj.n*obj.nc +(i-1)*obj.nu+1:2*obj.n*obj.nc+i*obj.nu - obj.nv;
+        cols = (i-1)*obj.nu+1:i*obj.nu - obj.nv;
+        obj.AINEQ( rows, cols )= eye(obj.nu - obj.nv);
+        if i > 1
+            cols = cols - obj.nu;
+            obj.AINEQ( rows ,cols )= -eye(obj.nu - obj.nv);
+        end
     end
 
-    obj.AINEQ( obj.n*obj.nc + 1: 2*obj.n*obj.nc , : ) = - obj.AINEQ( 1: obj.n*obj.nc , : );
-    obj.AINEQ( 2*obj.n*obj.nc + obj.n*obj.nu + 1 : 2*obj.n*obj.nc + 2*obj.n*obj.nu, : ) = ...
-        - obj.AINEQ( 2*obj.n*obj.nc + 1 : 2*obj.n*obj.nc + obj.n*obj.nu, : );
-    obj.G1( obj.n*obj.nc + 1: 2*obj.n*obj.nc , : ) = - obj.G1( 1: obj.n*obj.nc , : );
+    %Restrição inferior do comando
+    rows_lb = 2*obj.n*obj.nc + obj.n*obj.nu + 1 : 2*obj.n*obj.nc + 2*obj.n*obj.nu;
+    rows_ub = 2*obj.n*obj.nc + 1 : 2*obj.n*obj.nc + obj.n*obj.nu;
+    obj.AINEQ( rows_lb, : ) = - obj.AINEQ( rows_ub, : );
     
+    rows_lb = obj.n*obj.nc + 1: 2*obj.n*obj.nc;
+    rows_ub = 1: obj.n*obj.nc;
+    obj.G1( rows_lb , : ) = - obj.G1( rows_ub , : );
     
-    nu =  obj.nu - obj.nv; 
-    obj.G2( 2*obj.n*obj.nc + 1 : 2*obj.n*obj.nc + nu, 1 : nu  ) = eye(nu);
-    obj.G2(2*obj.n*obj.nc+obj.n*obj.nu+1:2*obj.n*obj.nc+obj.n*obj.nu+nu,1:nu)=-eye(nu);
+    nu =  obj.nu - obj.nv;
+    rows = 2*obj.n*obj.nc + 1 : 2*obj.n*obj.nc + nu;
+    cols = 1 : nu;
+    obj.G2( rows,  cols  ) = eye(nu);
+    rows = 2*obj.n*obj.nc+obj.n*obj.nu+1 :2*obj.n*obj.nc+obj.n*obj.nu+nu;
+    cols = 1:nu;
+    obj.G2( rows, cols )=-eye(nu);
 
+    %Restrição inferior do estado e restrição da variação do estado
+    if obj.nc > 0
+        rows_lb = obj.n*obj.nc + 1: 2*obj.n*obj.nc;
+        rows_ub = 1: obj.n*obj.nc;
+        obj.AINEQ( rows_lb , : ) = - obj.AINEQ( rows_ub, : );
+       
+        AUX = zeros( obj.n*obj.nc , obj.n*obj.nc );
+        for i=1:obj.n
+           rows = 1 + (i-1)*obj.nc: i*obj.nc;
+           cols = (i-1)*obj.nc + 1;
+           AUX( rows, cols ) = eye(obj.nc);
+           if( i > 1 )
+               cols = cols - obj.nc;
+               AUX( rows, cols ) = - eye( obj.nc );
+           end
+        end
+        
+        rows_slew = 2*obj.n*obj.nc + 2*obj.n*obj.nu + 1 : 3*obj.n*obj.nc + 2*obj.n*obj.nu;
+        rows_state = 1:obj.n*obj.nc;
+        obj.AINEQ( rows_slew, : ) = AUX * obj.AINEQ( rows_state, : ); 
+        obj.G4( rows_slew, : ) = AUX*obj.G1( rows_state, : );
+        
+        row_ub = rows_slew;
+        row_lb = rows_slew + obj.n*obj.nc;
+        obj.AINEQ( row_lb, : ) = -obj.AINEQ( row_ub, : );
+        obj.G4( row_lb , : ) = -obj.G4( row_ub, : );
+       
+        %
+        rows = 2*obj.n*obj.nc + 2*obj.n*obj.nu + 1 : 2*obj.n*obj.nc + 2*obj.n*obj.nu + obj.nc;
+        obj.G4( rows, : ) = obj.G4( rows, : ) + obj.C_C;
+       
+        rows = rows + obj.n*obj.nc;
+        obj.G4( rows, : ) = obj.G4( rows, : ) - obj.C_C;
+        
+    end
     obj.H = 2*obj.H;
     obj.F1 = 2*obj.F1;
     obj.F2 = -2*obj.F2;
     obj.F3 = 2*obj.F3; 
-    %PI =  obj.sel_matrix( 1, obj.nu, obj.n );
-    %AUX = PI/obj.H;
-    %obj.K =  AUX*obj.F1;
-    %obj.G = -AUX*obj.F2;
-    %obj.L = -AUX*obj.F3;
+    PI =  obj.sel_matrix( 1, obj.nu, obj.n );
+    AUX = PI/obj.H;
+    obj.K =  AUX*obj.F1;
+    obj.G = -AUX*obj.F2;
+    obj.L = -AUX*obj.F3;
     obj.constrained = 0;
     obj.u = zeros(obj.nu,1);
 
-    if ( size(arg_lb,1) == obj.nc ) &&...
-       ( size ( arg_ub,1 ) == obj.nc ) && ...
-       ( size(arg_slew_lb,1) == obj.nu - obj.nv ) && ...
-       ( size(arg_slew_ub,1) == obj.nu - obj.nv )
-            obj.cmd_lb = arg_cmd_lb;
-            obj.cmd_ub = arg_cmd_ub;
+    obj.cmd_lb = arg_cmd_lb;
+    obj.cmd_ub = arg_cmd_ub;
+    obj.state_lb = arg_lb;
+    obj.state_ub = arg_ub;
+    
+    if ( obj.nc > 0 ) 
                 obj.G3(1:obj.n*obj.nc,1) = repmat(arg_ub,obj.n,1);
                 obj.G3(obj.n*obj.nc+1:2*obj.n*obj.nc,1) = - repmat(arg_lb,obj.n,1);
                 obj.G3(2*obj.n*obj.nc + 1: 2*obj.n*obj.nc + obj.n*obj.nu ) = repmat([arg_slew_ub; zeros(obj.nv,1) ],obj.n,1);
                 obj.G3(2*obj.n*obj.nc+obj.n*obj.nu+1:2*obj.n*obj.nc+2*obj.n*obj.nu)=-repmat([arg_slew_lb; zeros(obj.nv,1)],obj.n,1);              
-            obj.constrained = 1;
+            obj.constrained= 1;
     end
     
     switch arg_parameterization
@@ -283,7 +350,6 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
     csvwrite('F1.csv',obj.F1);
     csvwrite('F2.csv',obj.F2);
     csvwrite('F3.csv',obj.F3);
-    
     %Configura o solver da QP
     %{
     hmax0 = norm(obj.H,2);
