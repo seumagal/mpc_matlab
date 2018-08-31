@@ -16,12 +16,12 @@ clear
 
     %Horizonte de predição
     simlinear = [];
-    openloop = [];
+    openloop = 0;
     Horizon = 101;
     Ts = 8e-5; %Período de amostragem
     
     %param_coeff =   [1 2 5 10 20 ]; %Parametrização geral Nij
-    param_coeff = [ 1000; 4; 100 ]; %Parametrização exponencial alpha; ne 
+    param_coeff = [ 100; 3; 100 ]; %Parametrização exponencial alpha; ne 
     % Ponderações da função custo
     Q_Y = diag(2); % Ponderação do erro em y
     Q_U = 1e-12;   % Ponderação do custo do controle
@@ -29,12 +29,12 @@ clear
     % Restrições 
     C_C =  [ 1 0 0 0 ]; %Restringe apenas o primeiro estado (deslizamento)
 
-    lb = -pi/18;        %Val   or mínimo do estado regulado (slip angle)
+    lb = -pi/36;        %Val   or mínimo do estado regulado (slip angle)
     ub = -lb;           %Valor máximo do estado regulado
     rate_ub = 10*pi*Ts/180; %Restricao superior do slip rate
     rate_lb = -rate_ub; %Restricao superior do slip rate
-    slew_lb = -1200;     %Diferença mínima entre duas amostras consecutivas do comando
-    slew_ub = 1200;      %Diferença máxima entre duas amostras consecutivas do comando
+    slew_lb = -100;     %Diferença mínima entre duas amostras consecutivas do comando
+    slew_ub = 100;      %Diferença máxima entre duas amostras consecutivas do comando
     cmd_lb = -2000;      %Valor máximo do comandos
     cmd_ub = 2000;       %Valor mínimo do comando
     rate_factor = 14;   %Fator utilizado na atualizacao dinamica da restricao do slip rate
@@ -148,7 +148,7 @@ clear
 
 %% Modelo discreto
     sys = ss( A,[B,E]  ,C,D);
-    d_sys = c2d(sys,8e-4);
+    d_sys = c2d(sys,Ts);
     
     csvwrite('dA.csv',d_sys.a);
     csvwrite('dB.csv',d_sys.b);
@@ -170,7 +170,7 @@ clear
              lb, ub, ... %slew_sub, slew_slb, ...
              slew_lb, slew_ub, cmd_lb, cmd_ub,...
              d_sys.b(:,2), ...
-             'exponencial', param_coeff, 8e-4 );
+             'exponencial', param_coeff, 8e-5 );
     G1 = mpcobj.G1;
     G2 = mpcobj.G2;
     G3 = mpcobj.G3;
@@ -192,14 +192,16 @@ clear
         clear d_sys
     end
 %% Carrega os sinais para o esterçamento das rodas dianteiras
-    load simin;
-    load dlcinput;
+    
+  
     switch maneuver 
         case 'fishhook'
+        load simin;
         disp('fishhook')
         steer = simin(1:8:300001,:);
 
         case 'doublelane'
+        load dlcinput;
         disp('doublelane')
         steer = dlcinput;
         steer(:,1) = steer(:,1);
@@ -230,11 +232,13 @@ clear
         return;
     end
 %% Laço que executa as iterações da simulação
+mu_g = friction_coefficient*g;
 for i=1:size(steer,1)
    
 
     desired_yaw_rate(i) = ...
         steer(i,2)*uspeed/(l + Ku*l*uspeed*uspeed);
+    desired_yaw_rate(i) = min([abs(desired_yaw_rate(i)), abs(mu_g/uspeed)])*sign(steer(i,2));
 
     TRACK = desired_yaw_rate(i)*ones(Horizon,1);
     
@@ -245,7 +249,7 @@ for i=1:size(steer,1)
     lub( lub > -pi*Ts/180 ) = -pi*Ts/180;
     ssub(i)=sub;
     slub(i)=lub;
-    if isempty(openloop)
+    if openloop == 0
         [u(i), QP] = mpcobj.write_next_command(TRACK, steer(i,2), lub, sub );
     else
         u(i) = 0;
@@ -254,7 +258,9 @@ for i=1:size(steer,1)
     mpcobj.x = x(:,i);
     
 end
-qpOASES_sequence('c',QP);
+if  openloop == 0 
+    qpOASES_sequence('c',QP);
+end
 figure()
 plotresult
 save exe_teste

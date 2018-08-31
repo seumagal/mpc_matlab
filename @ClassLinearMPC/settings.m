@@ -254,7 +254,7 @@ function obj = settings( arg_A, arg_B, arg_C, arg_D, arg_Q_U, arg_Q_Y, ...
     cols = 1:nu;
     obj.G2( rows, cols )=-eye(nu);
 
-    %Restrição inferior do estado e restrição da variação do estado
+    %restrição da variação do estado
     if obj.nc > 0
         rows_lb = obj.n*obj.nc + 1: 2*obj.n*obj.nc;
         rows_ub = 1: obj.n*obj.nc;
