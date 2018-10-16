@@ -1,5 +1,5 @@
 set(0, 'DefaultLineLineWidth', 2);
-figure()
+figure(2)
 subplot(2,2,1)
 tempo = veh_states.Time;
 slip_angle = atan2(veh_states.Data(:,1), veh_states.Data(:,2))*180/pi;

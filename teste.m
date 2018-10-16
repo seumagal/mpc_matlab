@@ -16,7 +16,7 @@ clear
 
     %Horizonte de predição
     simlinear = [];
-    openloop = 0;
+    openloop = 1;
     Horizon = 101;
     Ts = 8e-5; %Período de amostragem
     
@@ -45,7 +45,7 @@ clear
     csvwrite('cmd_lb.csv',cmd_lb);
     % Manobra de+ teste
     maneuver = 'doublelane'; %'doublelane'
-    max_steer = 10*pi/180;
+    max_steer = 5*pi/180;
 
 %% Parâmetros do modelo
     a                   =  1.1;  %distância entre cg e eixo frontal
